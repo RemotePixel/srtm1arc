@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="SRTM 1 Arc Tile Grabber">
+    <meta name="author" content="Vincent Sarago">
+
+    <title>SRTM 1arc Tile Grabber</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- leaflet CSS -->
+    <link href="css/leaflet.css" rel="stylesheet">
+</head>
+
+<style>
+    body {
+      padding: 0;
+      margin: 0;
+    }
+    html, body, #map {
+      height: 100%;
+    }
+</style>
+
+<body>
+    <div id="map"></div>
+    <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+    <!-- Leaflet -->
+    <script src="js/leaflet-src.js"></script>
+    <script src="js/leaflet.spin.js"></script>
+    <!-- spin -->
+    <script src="js/spin.min.js"></script>
+    <!-- d3 -->
+    <script src="js/d3.min.js"></script>
+    <!-- queue -->
+    <script src="js/queue.min.js"></script>
+    <!-- topojson -->
+    <script src="js/topojson.min.js"></script>
+     <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+    
+    <script>
+	    function onEachFeature(feature, layer) {
+	        var mirror = 'http://e4ftl01.cr.usgs.gov/SRTM/SRTMGL1.003/2000.02.11/';
+	        var name =  feature.properties.Name;
+	        var file = mirror + feature.properties.Name + '.SRTMGL1.hgt.zip';
+	        var quicklook = mirror + feature.properties.Quicklook;
+	        var html = '<div id="pop">'+
+	                    '    You clicked tile <strong>' + name + '</strong>!<br>'+
+	                    '    <img id="quicklook" src="'+ quicklook +'" class="img-thumbnail" width="200" height="200">'+
+	                    '    <div>'+
+	                    '         <a id="tip_button" class="btn btn-small btn-success tip_button" href="' + file + '" target="_blank">Download SRTM Tile</a><br>'+
+	                    '    </div>'+
+	                    '</div>';
+	        var popup = L.popup({maxWidth: 512, maxHeight:512, keepInView:true})
+	            .setContent(html);
+	        layer.bindPopup(popup);
+	    };
+
+        bounds = L.latLngBounds([-90, -180], [90, 180]);
+	    
+        var map = L.map('map', {
+            center: [0, 0],
+            maxBounds: bounds,
+            bounceAtZoomLimits: false,
+            zoom: 2,
+            minZoom: 2,
+            maxZoom: 5
+        });   
+
+        map.spin(true);
+	    var osm_url = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+	    var attribution = '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+        var OpenStreetMap = L.tileLayer(osm_url, {id: 'MapID', attribution: attribution})
+                 .addTo(map);
+
+	    var mq_aerial_url = 'http://oatile{s}.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.jpg'
+        var attribution_mq = 'Tiles Courtesy of <a href="http://www.mapquest.com/">MapQuest</a> &mdash; Portions Courtesy NASA/JPL-Caltech and U.S. Depart. of Agriculture, Farm Service Agency'
+        var MapQuestOpen_Aerial = L.tileLayer(mq_aerial_url, {id: 'MapID', attribution: attribution_mq, subdomains: '1234'});
+
+        var esri_url = 'http://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}';
+        var attribution_esri = 'Tiles &copy; Esri &mdash; Source: Esri';
+        var Esri_WorldShadedRelief = L.tileLayer(esri_url, {id: 'MapID', attribution: attribution_esri, maxZoom: 13});       
+
+        var topojsonPolyOptions = {
+			"color": "#1C1C1C",
+			"weight": 0.2,
+			"fillOpacity": 0.1
+		};	
+        
+        topojsonLayer = L.geoJson(null,{
+			style: topojsonPolyOptions,
+			onEachFeature:onEachFeature
+		});
+
+        queue()
+            //.defer(d3.json, 'https://dl.dropboxusercontent.com/u/29643591/data/srtm.json')
+            .defer(d3.json, 'data/srtm.json')
+            .await(addToMap);
+        
+        function addToMap(error, obj) {
+            var data = topojson.object(obj, obj.objects.srtm).geometries;
+            topojsonLayer.addData(data);
+            topojsonLayer.addTo(map);
+            map.spin(false);
+        }
+
+        var baseMaps = {
+		    "OpenStreetMap": OpenStreetMap,
+            "ESRI-Shaded" : Esri_WorldShadedRelief,
+		    "MapQuest-Aerial" : MapQuestOpen_Aerial
+		};
+		
+		var overlayMaps = {
+		    "SRTM Grid": topojsonLayer
+		};
+	    
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+    </script>
+</body>
+</html>
